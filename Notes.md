@@ -1,0 +1,1 @@
+dotnet pack ./src/Mimir.Jsonic.fsproj -c Release
