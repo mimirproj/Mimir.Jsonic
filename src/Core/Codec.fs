@@ -44,8 +44,6 @@ module Codec =
         Decode.fromValue "$" (decoder codec)
 
 
-
-
     (* ENCODE *)
 
     /// Extracts the encoding function contained inside the `Codec`.

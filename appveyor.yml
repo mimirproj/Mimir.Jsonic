@@ -18,7 +18,7 @@ before_build:
 
 build_script:
   - cmd: dotnet build Mimir.Jsonic.sln
-  - cmd: dotnet pack ./src/Mimir.Jsonic.fsproj -c Release /p:PackageVersion=1.0.{build}
+  - cmd: dotnet pack ./src/Core/Mimir.Jsonic.fsproj -c Release /p:PackageVersion=1.0.{build}
 
 artifacts:
   - path: ./src/bin/Release/*.nupkg

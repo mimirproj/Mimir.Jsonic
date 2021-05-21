@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Authors>Mimir</Authors>
-    <Description>Mimir's Jsonic</Description>
-    <PackageTags>Mimir Json Encode</PackageTags>
-
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <Authors>Mimir</Authors>
+    <Description>Mimir's Jsonic for .Net</Description>
+    <PackageTags>Mimir Json Encode</PackageTags>
 
     <Version>1.0.0-alpha</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
@@ -21,20 +21,13 @@
     <WarningsAsErrors>25</WarningsAsErrors>
   </PropertyGroup>
 
-
   <ItemGroup>
-    <Compile Include="Types.fs" />
-    <Compile Include="Encode.fs" />
-    <Compile Include="Decode.fs" />
-    <Compile Include="Codec.fs" />
+    <Compile Include="Json.fs" />
   </ItemGroup>
 
-  <!-- Add source files to "fable" folder in Nuget package -->
   <ItemGroup>
-    <Content Include="*.fsproj; **\*.fs" PackagePath="fable\" />
+    <PackageReference Include="Mimir.Jsonic" Version="1.2.0-alpha" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Mimir.FSharp.Extensions" Version="2.0.0" />
-  </ItemGroup>
+
 
 </Project>

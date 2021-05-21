@@ -1,3 +1,4 @@
+[<RequireQualifiedAccess>]
 module Mimir.Jsonic.Decode
 
 let inline private overflow path type' value =
@@ -22,14 +23,33 @@ let bool : Decoder<bool> =
         | _ -> Error(unexpected path "bool" value)
 
 
-let inline private integer (narrow: 'w -> 'n)
-                           (widen: 'n -> 'w)
-                           (minValue: 'n)
-                           (maxValue: 'n)
-                           (value: 'w) =
+let inline private fromInt64 (narrow: int64 -> ^m)
+                             (value: int64)
+                             : ^m option =
 
-    if value >= widen minValue && value <= widen maxValue then
-        Some (narrow value)
+    let (min:'m) = minValue()
+    let (max:'m) = maxValue()
+
+    if isNegative value && value >= int64 min then
+        Some(narrow value)
+
+    elif value <= int64 max then
+        Some(narrow value)
+
+    else
+        None
+
+
+let inline private fromUint64 (narrow: uint64 -> ^m)
+                              (value: uint64)
+                              : ^m option =
+
+    let (max:'m) = maxValue()
+
+    // We only need to check that the value is <= to maxValue ^m because input is always positive
+    if value <= uint64 max then
+        Some(narrow value)
+
     else
         None
 
@@ -37,11 +57,11 @@ let int8 : Decoder<int8> =
     fun path value ->
         match value with
         | Primitive(Integer(SignedInteger i)) ->
-            integer int8 int64 System.SByte.MinValue System.SByte.MaxValue i
+            fromInt64 int8 i
             |> Result.ofOption (overflow path "int8" value)
 
         | Primitive(Integer(UnsignedInteger i)) ->
-            integer int8 uint64 System.SByte.MinValue System.SByte.MaxValue i
+            fromUint64 int8 i
             |> Result.ofOption (overflow path "int8" value)
 
         | _ -> Error(unexpected path "int8" value)
@@ -50,11 +70,11 @@ let uint8 : Decoder<uint8> =
     fun path value ->
         match value with
         | Primitive(Integer(SignedInteger i)) ->
-            integer uint8 int64 System.Byte.MinValue System.Byte.MaxValue i
+            fromInt64 uint8 i
             |> Result.ofOption (overflow path "uint8" value)
 
         | Primitive(Integer(UnsignedInteger i)) ->
-            integer uint8 uint64 System.Byte.MinValue System.Byte.MaxValue i
+            fromUint64 uint8 i
             |> Result.ofOption (overflow path "uint8" value)
 
         | _ -> Error(unexpected path "uint8" value)
@@ -64,11 +84,11 @@ let int16 : Decoder<int16> =
     fun path value ->
         match value with
         | Primitive(Integer(SignedInteger i)) ->
-            integer int16 int64 System.Int16.MinValue System.Int16.MaxValue i
+            fromInt64 int16 i
             |> Result.ofOption (overflow path "int16" value)
 
         | Primitive(Integer(UnsignedInteger i)) ->
-            integer int16 uint64 System.Int16.MinValue System.Int16.MaxValue i
+            fromUint64 int16 i
             |> Result.ofOption (overflow path "int16" value)
 
         | _ -> Error(unexpected path "int16" value)
@@ -77,11 +97,11 @@ let uint16 : Decoder<uint16> =
     fun path value ->
         match value with
         | Primitive(Integer(SignedInteger i)) ->
-            integer uint16 int64 System.UInt16.MinValue System.UInt16.MaxValue i
+            fromInt64 uint16 i
             |> Result.ofOption (overflow path "uint16" value)
 
         | Primitive(Integer(UnsignedInteger i)) ->
-            integer uint16 uint64 System.UInt16.MinValue System.UInt16.MaxValue i
+            fromUint64 uint16 i
             |> Result.ofOption (overflow path "uint16" value)
 
         | _ -> Error(unexpected path "uint16" value)
@@ -91,11 +111,11 @@ let int32 : Decoder<int32> =
     fun path value ->
         match value with
         | Primitive(Integer(SignedInteger i)) ->
-            integer int32 int64 System.Int32.MinValue System.Int32.MaxValue i
+            fromInt64 int32 i
             |> Result.ofOption (overflow path "int32" value)
 
         | Primitive(Integer(UnsignedInteger i)) ->
-            integer int32 uint64 System.Int32.MinValue System.Int32.MaxValue i
+            fromUint64 int32 i
             |> Result.ofOption (overflow path "int32" value)
 
         | _ -> Error(unexpected path "int32" value)
@@ -104,11 +124,11 @@ let uint32 : Decoder<uint32> =
     fun path value ->
         match value with
         | Primitive(Integer(SignedInteger i)) ->
-            integer uint32 int64 System.UInt32.MinValue System.UInt32.MaxValue i
+            fromInt64 uint32 i
             |> Result.ofOption (overflow path "uint32" value)
 
         | Primitive(Integer(UnsignedInteger i)) ->
-            integer uint32 uint64 System.UInt32.MinValue System.UInt32.MaxValue i
+            fromUint64 uint32 i
             |> Result.ofOption (overflow path "uint32" value)
 
         | _ -> Error(unexpected path "uint32" value)

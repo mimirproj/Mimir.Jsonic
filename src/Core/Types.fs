@@ -34,3 +34,4 @@ type Decoder<'a> = string -> Value -> Result<'a, Error>
     | BadField of {| Path:string; FieldName:string; Actual: Value |}
     | Failure of {| Path:string; Message:string |}
     | BadPath of {| Path:string; Fields:string list; Actual: Value |}
+    | ReaderFailure

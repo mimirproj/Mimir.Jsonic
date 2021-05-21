@@ -1,5 +1,5 @@
+[<RequireQualifiedAccess>]
 module Mimir.Jsonic.Encode
-
 
 let nil : Encoder<_> =
     Nil >> Primitive
