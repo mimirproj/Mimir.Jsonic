@@ -45,7 +45,8 @@ module Encode =
                     writer.WriteStringValue(value)
 
                 | Binary bytes ->
-                    writer.WriteBase64StringValue(ReadOnlySpan<byte> bytes)
+                    let base64 = Convert.ToBase64String(bytes)
+                    writer.WriteStringValue("base64," + base64)
 
                 | Timestamp ts ->
                     writer.WriteStringValue(ts.ToString("O", CultureInfo.InvariantCulture))
@@ -109,8 +110,26 @@ module Decode =
                     invalidOp "Couldn't decode JSON Number")
 
             | JsonValueKind.String ->
+                let tryGetBase64() =
+
+                    let prefix = "base64,"
+                    let stringValue = el.GetString()
+                    let index = stringValue.IndexOf(prefix)
+
+                    if index = 0 then
+                        printfn "Tring base64"
+                        try
+                            stringValue.Substring(prefix.Length)
+                            |> Convert.FromBase64String
+                            |> Binary |> Primitive
+                            |> Some
+                        with _ ->
+                            None
+                    else
+                        None
+
                 // Order is important, first types formatted as string, lastly plain strings!
-                el.TryGetBytesFromBase64() |> ofPairMapped (Binary >> Primitive)
+                tryGetBase64()
                 |> Option.orElseWith(fun _ ->
                     el.TryGetDateTimeOffset() |> ofPairMapped (Timestamp >> Primitive))
                 |> Option.orElseWith(fun _ ->
