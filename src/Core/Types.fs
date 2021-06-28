@@ -10,7 +10,7 @@ type Integer =
     | UnsignedInteger   of uint64
 
 type Primitive =
-    | Nil               of unit
+    | Nil
     | Bool              of bool
     | Integer           of Integer
     | Float             of float64

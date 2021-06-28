@@ -74,8 +74,8 @@ module Codec =
         Codec { encoder = encoder
                 decoder = decoder }
 
-    let nil =
-        build Encode.nil Decode.nil
+    let unit =
+        build Encode.unit Decode.unit
 
     /// `Codec` between a boolean and a `Bool`
     let bool =
@@ -89,6 +89,10 @@ module Codec =
     let uint8 =
         build Encode.uint8 Decode.uint8
 
+    /// Alias to Codec.uint8
+    let byte =
+        build Encode.byte Decode.byte
+
     /// `Codec` between a number and an `int16`
     let int16 =
         build Encode.int16 Decode.int16
@@ -100,6 +104,10 @@ module Codec =
     /// `Codec` between a number and an `int32`
     let int32 =
         build Encode.int32 Decode.int32
+
+    /// Alias to Codec.int32
+    let int =
+        build Encode.int Decode.int
 
     /// `Codec` between a number and an `uint32`
     let uint32 =
@@ -366,10 +374,10 @@ module Codec =
             Decode.array codec
 
     /// `Codec` between a JSON object and a `Map`.
-    let stringMap codec =
+    let dict codec =
         composite
-            (fun e -> Encode.stringMap << Map.map (fun _ -> e))
-            Decode.stringMap
+            (fun e -> Encode.dict << Map.map (fun _ -> e))
+            Decode.dict
             codec
 
     /// `Codec` between a JSON array and a `Set`.
@@ -501,7 +509,7 @@ module Codec =
     let fail msg =
         Codec
             { decoder = Decode.fail msg
-              encoder = fun _ -> Encode.nil()
+              encoder = fun _ -> Encode.unit()
             }
 
     /// Create codecs that depend on previous results.
@@ -531,7 +539,7 @@ module Codec =
     let constant ``default`` =
         Codec
             { decoder = Decode.succeed ``default``
-              encoder = fun _ -> Encode.nil()
+              encoder = fun _ -> Encode.unit()
             }
 
     /// Create a `Codec` that doesn't transform the JSON value.

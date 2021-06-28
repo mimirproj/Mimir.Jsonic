@@ -10,10 +10,30 @@ let inline private unexpected path type' value =
 let inline private badPath path fields value =
     BadPath {| Path=path; Fields=fields; Actual=value |}
 
-let nil : Decoder<unit> =
+
+(* RUNNERS
+*)
+
+let fromValue (path : string) (decoder : Decoder<'a>) =
+    fun value ->
+        match decoder path value with
+        | Ok success ->
+            Ok success
+        | Error error ->
+            Error error
+
+
+// NOTE: The other runners are implemented in their platform specific libraries!
+
+
+
+(* PRIMITIVES
+*)
+
+let unit : Decoder<unit> =
     fun path value ->
         match value with
-        | Primitive(Nil _) -> Ok()
+        | Primitive Nil -> Ok()
         | _ -> Error(unexpected path "null" value)
 
 let bool : Decoder<bool> =
@@ -40,18 +60,19 @@ let inline private fromInt64 (narrow: int64 -> ^m)
         None
 
 
-let inline private fromUint64 (narrow: uint64 -> ^m)
+let inline private fromUint64 (narrow: uint64 -> ^n)
                               (value: uint64)
-                              : ^m option =
+                              : ^n option =
 
-    let (max:'m) = maxValue()
+    let (max:'n) = maxValue()
 
-    // We only need to check that the value is <= to maxValue ^m because input is always positive
+    // We only need to check that the value is <= to maxValue 'n because input is always positive
     if value <= uint64 max then
         Some(narrow value)
 
     else
         None
+
 
 let int8 : Decoder<int8> =
     fun path value ->
@@ -66,6 +87,7 @@ let int8 : Decoder<int8> =
 
         | _ -> Error(unexpected path "int8" value)
 
+
 let uint8 : Decoder<uint8> =
     fun path value ->
         match value with
@@ -78,6 +100,9 @@ let uint8 : Decoder<uint8> =
             |> Result.ofOption (overflow path "uint8" value)
 
         | _ -> Error(unexpected path "uint8" value)
+
+/// Alias to Decode.uint8
+let byte : Decoder<byte> = uint8
 
 
 let int16 : Decoder<int16> =
@@ -92,6 +117,7 @@ let int16 : Decoder<int16> =
             |> Result.ofOption (overflow path "int16" value)
 
         | _ -> Error(unexpected path "int16" value)
+
 
 let uint16 : Decoder<uint16> =
     fun path value ->
@@ -119,6 +145,10 @@ let int32 : Decoder<int32> =
             |> Result.ofOption (overflow path "int32" value)
 
         | _ -> Error(unexpected path "int32" value)
+
+/// Alias to Decode.int32
+let int : Decoder<int> = int32
+
 
 let uint32 : Decoder<uint32> =
     fun path value ->
@@ -171,6 +201,7 @@ let float32 : Decoder<float32> =
 
         | _ -> Error(unexpected path "float32" value)
 
+
 let float64 : Decoder<float64> =
     fun path value ->
         match value with
@@ -206,57 +237,81 @@ let timestamp : Decoder<System.DateTimeOffset> =
 
         | _ -> Error(unexpected path "timestamp" value)
 
-let option (decoder : Decoder<'a>) : Decoder<'a option> =
+
+
+(* OBJECT PRIMITIVES
+*)
+
+let private decodeMaybeNull path (decoder : Decoder<'a>) value =
+    // The decoder may be an option decoder so give it an opportunity to check null values
+    match decoder path value with
+    | Ok v -> Ok(Some v)
+    | Error _ when value = Primitive Nil -> Ok None
+    | Error er -> Error er
+
+
+let optional (fieldName : string) (decoder : Decoder<'value>) : Decoder<'value option> =
     fun path value ->
         match value with
-        | Primitive(Nil()) ->
-            Ok None
+        | Object m ->
+            match m with
+            | Key fieldName fieldValue ->
+                decodeMaybeNull (path + "." + fieldName) decoder fieldValue
+
+            | _ -> // Undefined
+                Ok None
 
         | _ ->
-            decoder path value
-            |> Result.map Some
+            Error(unexpected path "object" value)
 
-let array (decoder : Decoder<'a>) : Decoder<'a array> =
+
+let optionalAt (fieldNames : string list) (decoder : Decoder<'value>) : Decoder<'value option> =
+    fun firstPath firstValue ->
+        ((firstPath, firstValue, None), fieldNames)
+        ||> List.fold (fun (curPath, curValue, res) field ->
+            match res with
+            | Some _ -> curPath, curValue, res
+            | None ->
+                match curValue with
+                | Primitive Nil ->
+                    curPath, curValue, Some (Ok None)
+
+                | Object m ->
+                    let curValue =
+                        match m with
+                        | Key field curValue -> curValue
+                        | _ -> Primitive Nil
+
+                    curPath + "." + field, curValue, None
+
+                | _ ->
+                    let res = Error(unexpected curPath "object" curValue)
+                    curPath, curValue, Some res
+        )
+
+        |> function
+            | _, _, Some res -> res
+            | lastPath, lastValue, None ->
+                if lastValue = Primitive Nil then Ok None
+                else decodeMaybeNull lastPath decoder lastValue
+
+
+let field (fieldName: string) (decoder : Decoder<'a>) : Decoder<'a> =
     fun path value ->
         match value with
-        | Array arr ->
-            let mutable index = 0
-            let mutable error = None
-            let newArr = Array.zeroCreate arr.Length
+        | Object items ->
+            match items with
+            | Key fieldName fieldValue ->
+                decoder (path + "." + fieldName) fieldValue
 
-            while error.IsNone && index < arr.Length do
-                match decoder (sprintf ".[%i]" index) arr.[index] with
-                | Ok nv ->
-                    newArr.[index] <- nv
-                    index <- index + 1
-
-                | Error e ->
-                    error <- Some e
-
-            match error with
-            | None -> Ok newArr
-            | Some e -> Error e
+            | _ ->
+                Error(BadField {| Path=path; FieldName=fieldName; Actual=value |})
 
         | _ ->
-            Error(unexpected path "array" value)
+            Error(unexpected path "object" value)
 
 
-
-let index (index: uint) (decoder : Decoder<'value>) : Decoder<'value> =
-    fun path value ->
-        match value with
-        | Array arr ->
-            let arrPath = sprintf ".[%i]" index
-
-            if int index < arr.Length then
-                decoder arrPath arr.[int index]
-            else
-                IndexOutOfRange  {| Path=arrPath; Index=uint index; ArrayLength=uint arr.Length |}
-                |> Error
-        | _ ->
-            Error(unexpected path "array" value)
-
-let at (fieldNames: string list) (decoder : Decoder<'value>) : Decoder<'value> =
+let at (fieldNames: string list) (decoder : Decoder<'a>) : Decoder<'a> =
     fun firstPath firstValue ->
         ((firstPath, firstValue, None), fieldNames)
         ||> List.fold (fun (curPath, curValue, res) field ->
@@ -287,18 +342,78 @@ let at (fieldNames: string list) (decoder : Decoder<'value>) : Decoder<'value> =
                 decoder lastPath lastValue
 
 
-let field (fieldName: string) (decoder : Decoder<'value>) : Decoder<'value> =
+let index (index: uint) (decoder : Decoder<'a>) : Decoder<'a> =
     fun path value ->
         match value with
-        | Object items ->
-            match items with
-            | Key fieldName fieldValue ->
-                decoder (path + "." + fieldName) fieldValue
-            | _ ->
-                Error(BadField {| Path=path; FieldName=fieldName; Actual=value |})
+        | Array arr ->
+            let intIndex = Operators.int index
+            let arrPath = sprintf ".[%i]" index
+            if intIndex < arr.Length then
+                decoder arrPath arr.[intIndex]
+
+            else
+                IndexOutOfRange
+                    {| Path = arrPath
+                       Index = index
+                       ArrayLength = Operators.uint arr.Length
+                    |}
+                |> Error
 
         | _ ->
-            Error(unexpected path "object" value)
+            Error(unexpected path "array" value)
+
+
+let option (decoder : Decoder<'a>) : Decoder<'a option> =
+    fun path value ->
+        match value with
+        | Primitive Nil ->
+            Ok None
+
+        | _ ->
+            decoder path value
+            |> Result.map Some
+
+
+
+(* DATA STRUCTURES
+*)
+
+let array (decoder : Decoder<'a>) : Decoder<'a array> =
+    fun path value ->
+        match value with
+        | Array arr ->
+            let mutable index = 0
+            let mutable error = None
+            let newArr = Array.zeroCreate arr.Length
+
+            while error.IsNone && index < arr.Length do
+                match decoder (sprintf ".[%i]" index) arr.[index] with
+                | Ok nv ->
+                    newArr.[index] <- nv
+                    index <- index + 1
+
+                | Error e ->
+                    error <- Some e
+
+            match error with
+            | None -> Ok newArr
+            | Some e -> Error e
+
+        | _ ->
+            Error(unexpected path "array" value)
+
+
+let seq (decoder : Decoder<'a>) : Decoder<'a seq> =
+    fun path value ->
+        array decoder path value
+        |> Result.map Array.toSeq
+
+
+let list (decoder : Decoder<'a>) : Decoder<'a list> =
+    fun path value ->
+        array decoder path value
+        |> Result.map Array.toList
+
 
 let keys : Decoder<string list> =
     fun path value ->
@@ -336,51 +451,9 @@ let keyValuePairs (decoder : Decoder<'a>) : Decoder<(string * 'a) list> =
         | _ ->
             Error(unexpected path "object" value)
 
-let stringMap (decoder : Decoder<'a>) : Decoder<Map<string, 'a>> =
-    fun path value ->
-        match value with
-        | Object items ->
-            (Ok [], items)
-            ||> Map.fold(fun acc fieldName fieldValue ->
-                match acc with
-                | Ok acc ->
-                    match decoder path fieldValue with
-                    | Error e ->
-                        Error e
 
-                    | Ok fv ->
-                        (fieldName, fv) :: acc
-                        |> Ok
-
-                | Error _ ->
-                    acc)
-            |> Result.map Map.ofList
-
-        | _ ->
-            Error(unexpected path "object" value)
-
-let seq (decoder : Decoder<'a>) : Decoder<'a seq> =
-    fun path value ->
-        array decoder path value
-        |> Result.map Array.toSeq
-
-let list (decoder : Decoder<'a>) : Decoder<'a list> =
-    fun path value ->
-        array decoder path value
-        |> Result.map Array.toList
-
-let value : Decoder<Value> =
-    fun _ v ->
-        Ok v
-
-let fromValue (path : string) (decoder : Decoder<'a>) =
-    fun value ->
-        match decoder path value with
-        | Ok success ->
-            Ok success
-        | Error error ->
-            Error (
-                error)
+(* INCONSISTENT STRUCTURE
+*)
 
 let oneOf (decoders : Decoder<'a> list) : Decoder<'a> =
     fun path value ->
@@ -395,20 +468,39 @@ let oneOf (decoders : Decoder<'a> list) : Decoder<'a> =
 
         runner decoders []
 
+
+(* FANCY DECODING
+*)
+
+let nil (output : 'a) : Decoder<'a> =
+    fun path value ->
+        match value with
+        | Primitive Nil -> Ok output
+        | _ -> Error(unexpected path "null" value)
+
+
+let value : Decoder<Value> =
+    fun _ v ->
+        Ok v
+
+
 let succeed (output : 'a) : Decoder<'a> =
     fun _ _ ->
         Ok output
+
 
 let fail (msg: string) : Decoder<'a> =
     fun path _ ->
         Failure {| Path=path; Message=msg |}
         |> Error
 
+
 let andThen (cb: 'a -> Decoder<'b>) (decoder : Decoder<'a>) : Decoder<'b> =
     fun path value ->
         match decoder path value with
         | Error error -> Error error
         | Ok result -> cb result path value
+
 
 let all (decoders: Decoder<'a> list): Decoder<'a list> =
     fun path value ->
@@ -423,9 +515,9 @@ let all (decoders: Decoder<'a> list): Decoder<'a list> =
         runner decoders []
 
 
-/////////////////////
-// Map functions ///
-///////////////////
+(* MAP FUNCTIONS
+*)
+
 let map
     (ctor : 'a -> 'value)
     (d1 : Decoder<'a>) : Decoder<'value> =
@@ -555,9 +647,14 @@ let map8
         | _,_,_,_,_,_,_,Error er -> Error er
 
 
-///////////////////////
-// Tuples decoders ///
-////////////////////
+let dict (decoder : Decoder<'value>) : Decoder<Map<string, 'value>> =
+        map Map.ofList (keyValuePairs decoder)
+
+
+
+(* TUPLE DECODERS
+*)
+
 let tuple2 (decoder1: Decoder<'T1>) (decoder2: Decoder<'T2>) : Decoder<'T1 * 'T2> =
 
     index 0u decoder1
@@ -717,3 +814,97 @@ let tuple8 (decoder1: Decoder<'T1>)
             )
         )
     )
+
+
+
+(* OBJECT BUILDER
+*)
+
+type IRequiredGetter =
+    abstract Field : string -> Decoder<'a> -> 'a
+    abstract At : List<string> -> Decoder<'a> -> 'a
+    //abstract Raw : Decoder<'a> -> 'a
+
+type IOptionalGetter =
+    abstract Field : string -> Decoder<'a> -> 'a option
+    abstract At : List<string> -> Decoder<'a> -> 'a option
+    //abstract Raw : Decoder<'a> -> 'a option
+
+type IGetters =
+    abstract Required: IRequiredGetter
+    abstract Optional: IOptionalGetter
+
+let private unwrapWith (errors: ResizeArray<Error>) path (decoder: Decoder<'T>) value: 'T =
+    match decoder path value with
+    | Ok v -> v
+    | Error er ->
+        errors.Add(er);
+        Unchecked.defaultof<'T>
+
+
+type Getters<'T>(path: string, v: Value) =
+    let mutable errors = ResizeArray<Error>()
+
+    let required =
+        { new IRequiredGetter with
+            member __.Field (fieldName : string) (decoder : Decoder<_>) =
+                unwrapWith errors path (field fieldName decoder) v
+
+            member __.At (fieldNames : string list) (decoder : Decoder<_>) =
+                unwrapWith errors path (at fieldNames decoder) v
+
+            // member __.Raw (decoder: Decoder<_>) =
+            //     unwrapWith errors path decoder v
+        }
+
+    let optional =
+        { new IOptionalGetter with
+            member __.Field (fieldName : string) (decoder : Decoder<_>) =
+                unwrapWith errors path (optional fieldName decoder) v
+
+            member __.At (fieldNames : string list) (decoder : Decoder<_>) =
+                unwrapWith errors path (optionalAt fieldNames decoder) v
+
+            // member __.Raw (decoder: Decoder<_>) =
+            //     match decoder path v with
+            //     | Ok v -> Some v
+            //     | Error((_, reason) as error) ->
+            //         match reason with
+            //         | BadPrimitive(_,v)
+            //         | BadPrimitiveExtra(_,v,_)
+            //         | BadType(_,v) ->
+            //             if Helpers.isNullValue v then None
+            //             else errors.Add(error); Unchecked.defaultof<_>
+            //         | BadField _
+            //         | BadPath _ -> None
+            //         | TooSmallArray _
+            //         | FailMessage _
+            //         | BadOneOf _ -> errors.Add(error); Unchecked.defaultof<_>
+        }
+
+    member __.Errors: _ list =
+        Seq.toList errors
+
+    interface IGetters with
+        member __.Required = required
+        member __.Optional = optional
+
+let object (builder: IGetters -> 'value) : Decoder<'value> =
+    fun path v ->
+        let getters = Getters(path, v)
+        let result = builder getters
+
+        match getters.Errors with
+        | [] ->
+            Ok result
+
+        | fst :: _ as errors ->
+            if errors.Length > 1 then
+                BadOneOf
+                    {| Path = path
+                       Errors = errors
+                    |}
+                |> Error
+
+            else
+                Error fst

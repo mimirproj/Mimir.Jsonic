@@ -1,11 +1,14 @@
 [<RequireQualifiedAccess>]
 module Mimir.Jsonic.Encode
 
-let nil : Encoder<_> =
-    Nil >> Primitive
+let unit : Encoder<unit> =
+    fun _ ->
+        Primitive Nil
+
 
 let bool : Encoder<_> =
     Bool >> Primitive
+
 
 let int8 : Encoder<int8> =
     int64
@@ -13,11 +16,17 @@ let int8 : Encoder<int8> =
     >> Integer
     >> Primitive
 
+
 let uint8 : Encoder<uint8> =
     uint64
     >> UnsignedInteger
     >> Integer
     >> Primitive
+
+
+/// Alias for Encoder.uint8
+let byte : Encoder<byte> = uint8
+
 
 let int16 : Encoder<int16> =
     int64
@@ -25,17 +34,23 @@ let int16 : Encoder<int16> =
     >> Integer
     >> Primitive
 
+
 let uint16 : Encoder<uint16> =
     uint64
     >> UnsignedInteger
     >> Integer
     >> Primitive
 
+
 let int32 : Encoder<int32> =
     int64
     >> SignedInteger
     >> Integer
     >> Primitive
+
+/// Alias for Encoder.int32
+let int : Encoder<int> = int32
+
 
 let uint32 : Encoder<uint32> =
     uint64
@@ -67,9 +82,8 @@ let binary : Encoder<byte array> =
 let timestamp : Encoder<System.DateTimeOffset> =
     Timestamp >> Primitive
 
-let option (encode:Encoder<'a>) =
-    Option.map encode
-    >> Option.defaultWith nil
+let array : Encoder<Value array> =
+    Array
 
 let seq : Encoder<Value seq> =
     Seq.toArray >> Array
@@ -77,13 +91,16 @@ let seq : Encoder<Value seq> =
 let list : Encoder<_> =
     List.toArray >> Array
 
-let array : Encoder<Value array> =
-    Array
+
+
+let option (encode:Encoder<'a>) =
+    Option.map encode
+    >> Option.defaultWith unit
 
 let object : Encoder<(string * Value) list> =
     Map.ofList >> Object
 
-let stringMap : Encoder<Map<string, Value>> =
+let dict : Encoder<Map<string, Value>> =
     Object
 
 let tuple2 (encodeA : Encoder<'a>)

@@ -24,7 +24,7 @@ module Encode =
             match value with
             | Primitive prim ->
                 match prim with
-                | Nil _ ->
+                | Nil ->
                     writer.WriteNullValue()
 
                 | Bool value ->
@@ -91,7 +91,7 @@ module Decode =
         let rec visit path (el:JsonElement) =
             match el.ValueKind with
             | JsonValueKind.Null ->
-                Primitive(Nil())
+                Primitive Nil
 
             | JsonValueKind.True ->
                 Primitive(Bool true)
