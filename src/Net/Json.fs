@@ -117,7 +117,6 @@ module Decode =
                     let index = stringValue.IndexOf(prefix)
 
                     if index = 0 then
-                        printfn "Tring base64"
                         try
                             stringValue.Substring(prefix.Length)
                             |> Convert.FromBase64String
