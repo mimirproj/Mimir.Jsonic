@@ -36,7 +36,7 @@ let callAsync (definition:ApiDefinition<'apiUnion>)
                     return value
 
                 | Error e ->
-                    return failwithf "API: Couln't decode http response, is your definition current? %A" e
+                    return failwithf "API: Couln't decode http response, is your definition current?\n%A\n%s" e outputJson
 
             | _ ->
                 return failwithf "API: Unsupported http response, text expected."

@@ -9,12 +9,15 @@
     <Description>Mimir's Jsonic for .Net Standard 2.0</Description>
     <PackageTags>Mimir Json Encode</PackageTags>
 
-    <Version>3.1.0-alpha</Version>
+    <Version>3.1.2-alpha</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <NeutralLanguage>en</NeutralLanguage>
     <RepositoryUrl>https://github.com/mimirproj</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>embedded</DebugType>
 
     <PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
 

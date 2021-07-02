@@ -3,6 +3,17 @@ module Mimir.Jsonic.Net.Test.Program
 open Mimir.Jsonic
 open Mimir.Jsonic.Net
 
+type SubType =
+    { Bla: string
+    }
+
+let subTypeCodec =
+    Codec.object (fun a ->
+        { Bla = a
+        })
+    |> Codec.field "bla" (fun v -> v.Bla) Codec.string
+    |> Codec.buildObject
+
 type Test =
     { SomeBool: bool
       SomeString: string
@@ -34,10 +45,14 @@ type Test =
       SomeFloat64High: float64
 
       SomeBinary: byte []
+
+      SomeSubType: SubType
+
+      SomeList: string list
     }
 
 let testCodec =
-    Codec.object (fun a b c d e f g h i j k l m n o p q r s t u v w->
+    Codec.object (fun a b c d e f g h i j k l m n o p q r s t u v w x y ->
         { SomeBool = a
           SomeString = b
 
@@ -68,6 +83,10 @@ let testCodec =
           SomeFloat64High = v
 
           SomeBinary = w
+
+          SomeSubType = x
+
+          SomeList = y
         })
     |> Codec.field "someBool" (fun v -> v.SomeBool) Codec.bool
     |> Codec.field "someString" (fun v -> v.SomeString) Codec.string
@@ -92,10 +111,12 @@ let testCodec =
     |> Codec.field "someFloat64Low" (fun v -> v.SomeFloat64Low) Codec.float64
     |> Codec.field "someFloat64High" (fun v -> v.SomeFloat64High) Codec.float64
     |> Codec.field "someBinary" (fun v -> v.SomeBinary) Codec.binary
+    |> Codec.field "someSubType" (fun v -> v.SomeSubType) subTypeCodec
+    |> Codec.field "someList" (fun v -> v.SomeList) (Codec.list Codec.string)
     |> Codec.buildObject
 
 let test () =
-    let json =
+    let valueIn =
         { SomeBool = true
           SomeString = "Hello"
           SomeUint8Low = minValue()
@@ -119,15 +140,19 @@ let test () =
           SomeFloat64Low = minValue()
           SomeFloat64High = maxValue()
           SomeBinary = [| 0uy; 1uy; 2uy; 3uy; 254uy; 255uy |]
+          SomeSubType = { Bla = "Hey Bob"}
+          SomeList = [ "Boo"; "Bar"; "Baz" ]
         }
-        |> Codec.encodeToString true testCodec
 
-    let value =
+    let json =
+        valueIn
+        |> Codec.encodeToString false testCodec
+
+    let valueOut =
         Codec.decodeString testCodec json
 
 
-    printfn "%s" json
-    printfn "%A" value
+    printfn "equal: %b" (Ok valueIn = valueOut)
 
 
 test()
