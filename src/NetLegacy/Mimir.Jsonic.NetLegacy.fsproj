@@ -9,7 +9,7 @@
     <Description>Mimir's Jsonic for .Net Standard 2.0</Description>
     <PackageTags>Mimir Json Encode</PackageTags>
 
-    <Version>3.1.2-alpha</Version>
+    <Version>4.0.0-alpha</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <NeutralLanguage>en</NeutralLanguage>
@@ -34,7 +34,7 @@
   <ItemGroup>
     <PackageReference Include="FSharp.Data" Version="4.1.1" />
     <PackageReference Include="Mimir.FSharp.Extensions" Version="3.1.0" />
-    <PackageReference Include="Mimir.Jsonic" Version="3.1.0-alpha" />
+    <PackageReference Include="Mimir.Jsonic" Version="4.0.0-alpha" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 

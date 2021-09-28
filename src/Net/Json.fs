@@ -51,6 +51,9 @@ module Encode =
                 | Timestamp ts ->
                     writer.WriteStringValue(ts.ToString("O", CultureInfo.InvariantCulture))
 
+                | Uuid v ->
+                    writer.WriteStringValue(v.ToString())
+
             | Array values ->
                 writer.WriteStartArray()
                 values |> Array.iter run
@@ -132,6 +135,7 @@ module Decode =
                 |> Option.orElseWith(fun _ ->
                     el.TryGetDateTimeOffset() |> ofPairMapped (Timestamp >> Primitive))
                 |> Option.orElseWith(fun _ ->
+                    el.TryGetGuid() |> ofPairMapped (Uuid >> Primitive))|> Option.orElseWith(fun _ ->
                     el.GetString() |> String |> Primitive |> Some)
                 |> Option.defaultWith(fun _ ->
                     invalidOp "Couldn't decode JSON String")

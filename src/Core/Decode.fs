@@ -238,6 +238,14 @@ let timestamp : Decoder<System.DateTimeOffset> =
         | _ -> Error(unexpected path "timestamp" value)
 
 
+let uuid : Decoder<System.Guid> =
+    fun path value ->
+        match value with
+        | Primitive(Uuid v) ->
+            Ok v
+
+        | _ -> Error(unexpected path "uuid" value)
+        
 
 (* OBJECT PRIMITIVES
 *)

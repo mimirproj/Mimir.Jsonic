@@ -49,6 +49,9 @@ module Encode =
                 | Timestamp ts ->
                     writer.WriteValue(ts.ToString("O", CultureInfo.InvariantCulture))
 
+                | Uuid v ->
+                    writer.WriteValue(v.ToString())
+
             | Array values ->
                 writer.WriteStartArray()
                 values |> Array.iter run
@@ -162,6 +165,9 @@ module Decode =
                 |> Option.orElseWith(fun _ ->
                     let v = el.Value<string>()
                     DateTimeOffset.TryParse(v) |> ofPairMapped (Timestamp >> Primitive))
+                |> Option.orElseWith(fun _ ->
+                    let v = el.Value<string>()
+                    Guid.TryParse(v) |> ofPairMapped (Uuid >> Primitive))
                 |> Option.orElseWith(fun _ ->
                     el.Value<string>() |> String |> Primitive |> Some)
                 |> Option.defaultWith(fun _ ->

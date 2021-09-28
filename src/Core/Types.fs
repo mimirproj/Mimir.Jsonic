@@ -17,6 +17,7 @@ type Primitive =
     | String            of string
     | Binary            of byte array
     | Timestamp         of DateTimeOffset
+    | Uuid              of Guid
 
 type Value =
     | Primitive         of Primitive

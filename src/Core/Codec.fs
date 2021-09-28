@@ -137,9 +137,13 @@ module Codec =
     let binary =
         build Encode.binary Decode.binary
 
-    /// `Codec` between a JSON string or a MsgPack timestamp and a `DateTimeOffset`
+    /// `Codec` between a JSON string or a MsgPack timestamp and a `System.DateTimeOffset`
     let timestamp =
         build Encode.timestamp Decode.timestamp
+
+    /// `Codec` between a JSON string or a MsgPack UUID and a `System.Guid`
+    let uuid =
+        build Encode.uuid Decode.uuid
 
 
 

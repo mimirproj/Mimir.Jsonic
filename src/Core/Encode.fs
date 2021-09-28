@@ -82,6 +82,9 @@ let binary : Encoder<byte array> =
 let timestamp : Encoder<System.DateTimeOffset> =
     Timestamp >> Primitive
 
+let uuid : Encoder<System.Guid> =
+    Uuid >> Primitive
+
 let array : Encoder<Value array> =
     Array
 
