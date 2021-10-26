@@ -11,53 +11,49 @@ open Newtonsoft.Json.Linq
 
 [<RequireQualifiedAccess>]
 module Encode =
-    let private write (output:StringBuilder) indent (value:Value) =
+    let private write (output:StringBuilder) indent (value:JsonicValue) =
         use sw = new StringWriter(output)
         use writer = new JsonTextWriter(sw)
         writer.Formatting <-
             if indent then Formatting.Indented
             else Formatting.None
 
-        let rec run(value:Value) =
+        let rec run(value:JsonicValue) =
             match value with
-            | Primitive prim ->
-                match prim with
-                | Nil ->
-                    writer.WriteNull()
+            | JsonicValue.Nil ->
+                writer.WriteNull()
 
-                | Bool value ->
-                    writer.WriteValue(value)
+            | JsonicValue.Bool value ->
+                writer.WriteValue(value)
 
-                | Integer iv ->
-                    match iv with
-                    | SignedInteger value ->
-                        writer.WriteValue(value)
+            | JsonicValue.Int value ->
+                writer.WriteValue(value)
 
-                    | UnsignedInteger value ->
-                        writer.WriteValue(value)
+            | JsonicValue.Uint value ->
+                writer.WriteValue(value)
 
-                | Float value ->
-                    writer.WriteValue(value)
+            | JsonicValue.Float value ->
+                writer.WriteValue(value)
 
-                | String value ->
-                    writer.WriteValue(value)
+            | JsonicValue.String value ->
+                writer.WriteValue(value)
 
-                | Binary bytes ->
-                    let base64 = Convert.ToBase64String(bytes)
-                    writer.WriteValue("base64," + base64)
+            | JsonicValue.Binary bytes ->
+                let base64 = Convert.ToBase64String(bytes)
+                writer.WriteValue("base64," + base64)
 
-                | Timestamp ts ->
-                    writer.WriteValue(ts.ToString("O", CultureInfo.InvariantCulture))
+            | JsonicValue.Timestamp ts ->
+                writer.WriteValue(ts.ToString("O", CultureInfo.InvariantCulture))
 
-                | Uuid v ->
-                    writer.WriteValue(v.ToString())
+            | JsonicValue.Uuid v ->
+                writer.WriteValue(v.ToString())
 
-            | Array values ->
+            | JsonicValue.Array values ->
                 writer.WriteStartArray()
                 values |> Array.iter run
                 writer.WriteEndArray()
 
-            | Object m ->
+            | JsonicValue.Object m ->
                 writer.WriteStartObject()
 
                 Map.toArray m
@@ -122,23 +118,23 @@ module Decode =
         let rec visit path (el:JToken) =
             match el.Type with
             | JTokenType.Null ->
-                Primitive Nil
+                JsonicValue.Nil
 
             | JTokenType.Boolean ->
                 let v = el.Value<_>()
-                Primitive(Bool v)
+                JsonicValue.Bool v
 
             | JTokenType.Float  ->
                 let v = el.Value<_>()
-                Primitive(Float v)
+                JsonicValue.Float v
 
             | JTokenType.Integer ->
                 let v = el.ToString()
 
                 // Order is important, unsigned integers first, then signed!
-                UInt64.TryParse(v) |> ofPairMapped (UnsignedInteger >> Integer >> Primitive)
+                UInt64.TryParse(v) |> ofPairMapped JsonicValue.Uint
                 |> Option.orElseWith(fun _ ->
-                    Int64.TryParse(v) |> ofPairMapped (SignedInteger >> Integer >> Primitive))
+                    Int64.TryParse(v) |> ofPairMapped JsonicValue.Int)
                 |> Option.defaultWith(fun _ ->
                     invalidOp "Couldn't decode JSON Number")
 
@@ -153,7 +149,7 @@ module Decode =
                         try
                             stringValue.Substring(prefix.Length)
                             |> Convert.FromBase64String
-                            |> Binary |> Primitive
+                            |> JsonicValue.Binary
                             |> Some
                         with _ ->
                             None
@@ -164,12 +160,12 @@ module Decode =
                 tryGetBase64()
                 |> Option.orElseWith(fun _ ->
                     let v = el.Value<string>()
-                    DateTimeOffset.TryParse(v) |> ofPairMapped (Timestamp >> Primitive))
+                    DateTimeOffset.TryParse(v) |> ofPairMapped JsonicValue.Timestamp)
                 |> Option.orElseWith(fun _ ->
                     let v = el.Value<string>()
-                    Guid.TryParse(v) |> ofPairMapped (Uuid >> Primitive))
+                    Guid.TryParse(v) |> ofPairMapped JsonicValue.Uuid)
                 |> Option.orElseWith(fun _ ->
-                    el.Value<string>() |> String |> Primitive |> Some)
+                    el.Value<string>() |> JsonicValue.String |> Some)
                 |> Option.defaultWith(fun _ ->
                     invalidOp "Couldn't decode JSON String")
 
@@ -177,7 +173,7 @@ module Decode =
                 Helpers.asArray el
                 |> Seq.mapi(fun index item -> visit $"{path}.[{index}]" item)
                 |> Seq.toArray
-                |> Array
+                |> JsonicValue.Array
 
             | JTokenType.Object ->
                 let v = el.Value<JObject>()
@@ -187,7 +183,7 @@ module Decode =
                     , visit (path + "." + p.Name) p.Value
                     ))
                 |> Map.ofSeq
-                |> Object
+                |> JsonicValue.Object
 
             | _ ->
                 invalidOp "Unsupported JSON token"

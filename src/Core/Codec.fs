@@ -9,7 +9,7 @@ type Codec<'a> = private Codec of CodecData<'a>
 
 
 type private ObjectCodecData<'a,'b> =
-    { encoder : 'a -> (string * Value) list
+    { encoder : 'a -> (string * JsonicValue) list
       decoder : Decoder<'b>
     }
 

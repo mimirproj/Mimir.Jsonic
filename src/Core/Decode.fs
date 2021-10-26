@@ -2,13 +2,16 @@
 module Mimir.Jsonic.Decode
 
 let inline private overflow path type' value =
-        ValueOverflow {| Path = path; ValueType = type'; Actual = value |}
+    JsonicError.ValueOverflow {| Path = path; ValueType = type'; Actual = value |}
+    |> Error
 
-let inline private unexpected path type' value =
-    UnexpectedType {| Path = path; ValueType = type'; Actual = value |}
+let inline private mismatch path type' value =
+    JsonicError.TypeMismatch {| Path = path; ValueType = type'; Actual = value |}
+    |> Error
 
-let inline private badPath path fields value =
-    BadPath {| Path=path; Fields=fields; Actual=value |}
+let inline private invalidPath path fields value =
+    JsonicError.InvalidPath {| Path=path; Fields=fields; Actual=value |}
+    |> Error
 
 
 (* RUNNERS
@@ -33,219 +36,190 @@ let fromValue (path : string) (decoder : Decoder<'a>) =
 let unit : Decoder<unit> =
     fun path value ->
         match value with
-        | Primitive Nil -> Ok()
-        | _ -> Error(unexpected path "null" value)
+        | JsonicValue.Nil -> Ok()
+        | _ -> mismatch path "null" value
 
 let bool : Decoder<bool> =
     fun path value ->
         match value with
-        | Primitive(Bool v) -> Ok v
-        | _ -> Error(unexpected path "bool" value)
+        | JsonicValue.Bool v -> Ok v
+        | _ -> mismatch path "bool" value
 
 
-let inline private fromInt64 (narrow: int64 -> ^m)
+let inline private fromInt64 (path:string)
+                             (typeName:string)
+                             (narrow: int64 -> ^m)
                              (value: int64)
-                             : ^m option =
+                             : Result< ^m,_> =
 
     let (min:'m) = minValue()
     let (max:'m) = maxValue()
 
     if isNegative value && value >= int64 min then
-        Some(narrow value)
+        Ok(narrow value)
 
     elif value <= int64 max then
-        Some(narrow value)
+        Ok(narrow value)
 
     else
-        None
+        overflow path typeName (JsonicValue.Int value)
 
 
-let inline private fromUint64 (narrow: uint64 -> ^n)
+let inline private fromUint64 (path:string)
+                              (typeName:string)
+                              (narrow: uint64 -> ^n)
                               (value: uint64)
-                              : ^n option =
+                              : Result< ^n,_> =
 
     let (max:'n) = maxValue()
 
     // We only need to check that the value is <= to maxValue 'n because input is always positive
     if value <= uint64 max then
-        Some(narrow value)
+        Ok(narrow value)
 
     else
-        None
+        overflow path typeName (JsonicValue.Uint value)
 
 
-let int8 : Decoder<int8> =
+let int8 : Decoder<_> =
+    let typeName = nameof int8
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            fromInt64 int8 i
-            |> Result.ofOption (overflow path "int8" value)
-
-        | Primitive(Integer(UnsignedInteger i)) ->
-            fromUint64 int8 i
-            |> Result.ofOption (overflow path "int8" value)
-
-        | _ -> Error(unexpected path "int8" value)
+        | JsonicValue.Int i -> fromInt64 path typeName int8 i
+        | JsonicValue.Uint i -> fromUint64 path typeName int8 i
+        | _ -> mismatch path typeName value
 
 
-let uint8 : Decoder<uint8> =
+let uint8 : Decoder<_> =
+    let typeName = nameof uint8
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            fromInt64 uint8 i
-            |> Result.ofOption (overflow path "uint8" value)
-
-        | Primitive(Integer(UnsignedInteger i)) ->
-            fromUint64 uint8 i
-            |> Result.ofOption (overflow path "uint8" value)
-
-        | _ -> Error(unexpected path "uint8" value)
+        | JsonicValue.Int i -> fromInt64 path typeName uint8 i
+        | JsonicValue.Uint i -> fromUint64 path typeName uint8 i
+        | _ -> mismatch path typeName value
 
 /// Alias to Decode.uint8
 let byte : Decoder<byte> = uint8
 
 
 let int16 : Decoder<int16> =
+    let typeName = nameof int16
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            fromInt64 int16 i
-            |> Result.ofOption (overflow path "int16" value)
-
-        | Primitive(Integer(UnsignedInteger i)) ->
-            fromUint64 int16 i
-            |> Result.ofOption (overflow path "int16" value)
-
-        | _ -> Error(unexpected path "int16" value)
+        | JsonicValue.Int i -> fromInt64 path typeName int16 i
+        | JsonicValue.Uint i -> fromUint64 path typeName int16 i
+        | _ -> mismatch path typeName value
 
 
 let uint16 : Decoder<uint16> =
+    let typeName = nameof uint16
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            fromInt64 uint16 i
-            |> Result.ofOption (overflow path "uint16" value)
-
-        | Primitive(Integer(UnsignedInteger i)) ->
-            fromUint64 uint16 i
-            |> Result.ofOption (overflow path "uint16" value)
-
-        | _ -> Error(unexpected path "uint16" value)
+        | JsonicValue.Int i -> fromInt64 path typeName uint16 i
+        | JsonicValue.Uint i -> fromUint64 path typeName uint16 i
+        | _ -> mismatch path typeName value
 
 
 let int32 : Decoder<int32> =
+    let typeName = nameof int32
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            fromInt64 int32 i
-            |> Result.ofOption (overflow path "int32" value)
-
-        | Primitive(Integer(UnsignedInteger i)) ->
-            fromUint64 int32 i
-            |> Result.ofOption (overflow path "int32" value)
-
-        | _ -> Error(unexpected path "int32" value)
+        | JsonicValue.Int i -> fromInt64 path typeName int32 i
+        | JsonicValue.Uint i -> fromUint64 path typeName int32 i
+        | _ -> mismatch path typeName value
 
 /// Alias to Decode.int32
 let int : Decoder<int> = int32
 
 
 let uint32 : Decoder<uint32> =
+    let typeName = nameof uint32
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            fromInt64 uint32 i
-            |> Result.ofOption (overflow path "uint32" value)
-
-        | Primitive(Integer(UnsignedInteger i)) ->
-            fromUint64 uint32 i
-            |> Result.ofOption (overflow path "uint32" value)
-
-        | _ -> Error(unexpected path "uint32" value)
+        | JsonicValue.Int i -> fromInt64 path typeName uint32 i
+        | JsonicValue.Uint i -> fromUint64 path typeName uint32 i
+        | _ -> mismatch path typeName value
 
 
 let int64 : Decoder<int64> =
+    let typeName = nameof int64
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            Ok i
+        | JsonicValue.Int i -> Ok i
 
-        | Primitive(Integer(UnsignedInteger i)) ->
-            if i <= uint64 System.Int64.MaxValue then
-                Ok(int64 i)
-            else
-                Error(overflow path "int64" value)
+        | JsonicValue.Uint i ->
+            if i <= uint64 System.Int64.MaxValue then Ok(int64 i)
+            else overflow path typeName value
 
-        | _ -> Error(unexpected path "int64" value)
+        | _ -> mismatch path typeName value
 
 let uint64 : Decoder<uint64> =
+    let typeName = nameof uint64
+
     fun path value ->
         match value with
-        | Primitive(Integer(SignedInteger i)) ->
-            if i >= 0L then
-                Ok(uint64 i)
-            else
-                Error(overflow path "uint64" value)
+        | JsonicValue.Int i ->
+            if i >= 0L then Ok(uint64 i)
+            else overflow path typeName value
 
-        | Primitive(Integer(UnsignedInteger i)) ->
-            Ok i
-
-        | _ -> Error(unexpected path "uint64" value)
+        | JsonicValue.Uint i -> Ok i
+        | _ -> mismatch path typeName value
 
 
 let float32 : Decoder<float32> =
+    let typeName = nameof float32
+
     fun path value ->
         match value with
-        | Primitive(Float f) ->
-            Ok(float32 f)
-
-        | _ -> Error(unexpected path "float32" value)
+        | JsonicValue.Float f ->  Ok(float32 f)
+        | _ -> mismatch path typeName value
 
 
 let float64 : Decoder<float64> =
+    let typeName = nameof float64
+
     fun path value ->
         match value with
-        | Primitive(Float f) ->
-            Ok f
-
-        | _ -> Error(unexpected path "float64" value)
+        | JsonicValue.Float f -> Ok f
+        | _ -> mismatch path typeName value
 
 
 let string : Decoder<string> =
+    let typeName = nameof string
+
     fun path value ->
         match value with
-        | Primitive(String s) ->
-            Ok s
-
-        | _ -> Error(unexpected path "string" value)
+        | JsonicValue.String s -> Ok s
+        | _ -> mismatch path typeName value
 
 
 let binary : Decoder<byte array> =
     fun path value ->
         match value with
-        | Primitive(Binary v) ->
-            Ok v
-
-        | _ -> Error(unexpected path "byte array" value)
+        | JsonicValue.Binary v -> Ok v
+        | _ -> mismatch path "byte array" value
 
 
 let timestamp : Decoder<System.DateTimeOffset> =
     fun path value ->
         match value with
-        | Primitive(Timestamp v) ->
-            Ok v
-
-        | _ -> Error(unexpected path "timestamp" value)
+        | JsonicValue.Timestamp v -> Ok v
+        | _ -> mismatch path "timestamp" value
 
 
 let uuid : Decoder<System.Guid> =
     fun path value ->
         match value with
-        | Primitive(Uuid v) ->
-            Ok v
+        | JsonicValue.Uuid v -> Ok v
+        | _ -> mismatch path "uuid" value
 
-        | _ -> Error(unexpected path "uuid" value)
-        
 
 (* OBJECT PRIMITIVES
 *)
@@ -254,14 +228,14 @@ let private decodeMaybeNull path (decoder : Decoder<'a>) value =
     // The decoder may be an option decoder so give it an opportunity to check null values
     match decoder path value with
     | Ok v -> Ok(Some v)
-    | Error _ when value = Primitive Nil -> Ok None
+    | Error _ when value = JsonicValue.Nil -> Ok None
     | Error er -> Error er
 
 
 let optional (fieldName : string) (decoder : Decoder<'value>) : Decoder<'value option> =
     fun path value ->
         match value with
-        | Object m ->
+        | JsonicValue.Object m ->
             match m with
             | Key fieldName fieldValue ->
                 decodeMaybeNull (path + "." + fieldName) decoder fieldValue
@@ -270,7 +244,7 @@ let optional (fieldName : string) (decoder : Decoder<'value>) : Decoder<'value o
                 Ok None
 
         | _ ->
-            Error(unexpected path "object" value)
+            mismatch path "object" value
 
 
 let optionalAt (fieldNames : string list) (decoder : Decoder<'value>) : Decoder<'value option> =
@@ -281,42 +255,39 @@ let optionalAt (fieldNames : string list) (decoder : Decoder<'value>) : Decoder<
             | Some _ -> curPath, curValue, res
             | None ->
                 match curValue with
-                | Primitive Nil ->
+                | JsonicValue.Nil ->
                     curPath, curValue, Some (Ok None)
 
-                | Object m ->
+                | JsonicValue.Object m ->
                     let curValue =
                         match m with
                         | Key field curValue -> curValue
-                        | _ -> Primitive Nil
+                        | _ -> JsonicValue.Nil
 
                     curPath + "." + field, curValue, None
 
                 | _ ->
-                    let res = Error(unexpected curPath "object" curValue)
+                    let res = mismatch curPath "object" curValue
                     curPath, curValue, Some res
         )
 
         |> function
             | _, _, Some res -> res
             | lastPath, lastValue, None ->
-                if lastValue = Primitive Nil then Ok None
+                if lastValue = JsonicValue.Nil then Ok None
                 else decodeMaybeNull lastPath decoder lastValue
 
 
 let field (fieldName: string) (decoder : Decoder<'a>) : Decoder<'a> =
     fun path value ->
         match value with
-        | Object items ->
+        | JsonicValue.Object items ->
             match items with
-            | Key fieldName fieldValue ->
-                decoder (path + "." + fieldName) fieldValue
-
-            | _ ->
-                Error(BadField {| Path=path; FieldName=fieldName; Actual=value |})
+            | Key fieldName fieldValue -> decoder (path + "." + fieldName) fieldValue
+            | _ -> Error(JsonicError.FieldMissing {| Path=path; FieldName=fieldName; Actual=value |})
 
         | _ ->
-            Error(unexpected path "object" value)
+            mismatch path "object" value
 
 
 let at (fieldNames: string list) (decoder : Decoder<'a>) : Decoder<'a> =
@@ -327,21 +298,21 @@ let at (fieldNames: string list) (decoder : Decoder<'a>) : Decoder<'a> =
             | Some _ -> curPath, curValue, res
             | None ->
                 match curValue with
-                | Primitive(Nil _) ->
-                    let res = Error(badPath curPath fieldNames firstValue)
+                | JsonicValue.Nil ->
+                    let res = invalidPath curPath fieldNames firstValue
                     (curPath, curValue, Some res)
 
-                | Object m ->
+                | JsonicValue.Object m ->
                     match m with
                     | Key field curValue ->
                         (curPath + "." + field, curValue, None)
 
                     | _ ->
-                        let res = Error(badPath curPath fieldNames firstValue)
+                        let res = invalidPath curPath fieldNames firstValue
                         (curPath, curValue, Some res)
 
                 | _ ->
-                    let res = Error(unexpected curPath "object" curValue)
+                    let res = mismatch curPath "object" curValue
                     curPath, curValue, Some res)
 
         |> function
@@ -353,14 +324,14 @@ let at (fieldNames: string list) (decoder : Decoder<'a>) : Decoder<'a> =
 let index (index: uint) (decoder : Decoder<'a>) : Decoder<'a> =
     fun path value ->
         match value with
-        | Array arr ->
+        | JsonicValue.Array arr ->
             let intIndex = Operators.int index
             let arrPath = sprintf ".[%i]" index
             if intIndex < arr.Length then
                 decoder arrPath arr.[intIndex]
 
             else
-                IndexOutOfRange
+                JsonicError.IndexOutOfRange
                     {| Path = arrPath
                        Index = index
                        ArrayLength = Operators.uint arr.Length
@@ -368,13 +339,13 @@ let index (index: uint) (decoder : Decoder<'a>) : Decoder<'a> =
                 |> Error
 
         | _ ->
-            Error(unexpected path "array" value)
+            mismatch path "array" value
 
 
 let option (decoder : Decoder<'a>) : Decoder<'a option> =
     fun path value ->
         match value with
-        | Primitive Nil ->
+        | JsonicValue.Nil ->
             Ok None
 
         | _ ->
@@ -389,7 +360,7 @@ let option (decoder : Decoder<'a>) : Decoder<'a option> =
 let array (decoder : Decoder<'a>) : Decoder<'a array> =
     fun path value ->
         match value with
-        | Array arr ->
+        | JsonicValue.Array arr ->
             let mutable index = 0
             let mutable error = None
             let newArr = Array.zeroCreate arr.Length
@@ -408,7 +379,7 @@ let array (decoder : Decoder<'a>) : Decoder<'a array> =
             | Some e -> Error e
 
         | _ ->
-            Error(unexpected path "array" value)
+            mismatch path "array" value
 
 
 let seq (decoder : Decoder<'a>) : Decoder<'a seq> =
@@ -426,20 +397,20 @@ let list (decoder : Decoder<'a>) : Decoder<'a list> =
 let keys : Decoder<string list> =
     fun path value ->
         match value with
-        | Object items ->
+        | JsonicValue.Object items ->
             items
             |> Map.toList
             |> List.map fst
             |> Ok
 
         | _ ->
-            Error(unexpected path "object" value)
+            mismatch path "object" value
 
 
 let keyValuePairs (decoder : Decoder<'a>) : Decoder<(string * 'a) list> =
     fun path value ->
         match value with
-        | Object items ->
+        | JsonicValue.Object items ->
             (Ok [], Map.toList items)
             ||> List.fold(fun acc (fieldName, fieldValue) ->
                 match acc with
@@ -457,7 +428,7 @@ let keyValuePairs (decoder : Decoder<'a>) : Decoder<(string * 'a) list> =
             |> Result.map List.rev
 
         | _ ->
-            Error(unexpected path "object" value)
+            mismatch path "object" value
 
 
 (* INCONSISTENT STRUCTURE
@@ -472,7 +443,7 @@ let oneOf (decoders : Decoder<'a> list) : Decoder<'a> =
                 | Ok v ->
                     Ok v
                 | Error error -> runner tail (errors @ [error])
-            | [] -> BadOneOf {| Path = path; Errors = errors |} |> Error
+            | [] -> JsonicError.BadOneOf {| Path = path; Errors = errors |} |> Error
 
         runner decoders []
 
@@ -483,11 +454,11 @@ let oneOf (decoders : Decoder<'a> list) : Decoder<'a> =
 let nil (output : 'a) : Decoder<'a> =
     fun path value ->
         match value with
-        | Primitive Nil -> Ok output
-        | _ -> Error(unexpected path "null" value)
+        | JsonicValue.Nil -> Ok output
+        | _ -> mismatch path "null" value
 
 
-let value : Decoder<Value> =
+let value : Decoder<JsonicValue> =
     fun _ v ->
         Ok v
 
@@ -499,7 +470,7 @@ let succeed (output : 'a) : Decoder<'a> =
 
 let fail (msg: string) : Decoder<'a> =
     fun path _ ->
-        Failure {| Path=path; Message=msg |}
+        JsonicError.Failure {| Path=path; Message=msg |}
         |> Error
 
 
@@ -842,7 +813,7 @@ type IGetters =
     abstract Required: IRequiredGetter
     abstract Optional: IOptionalGetter
 
-let private unwrapWith (errors: ResizeArray<Error>) path (decoder: Decoder<'T>) value: 'T =
+let private unwrapWith (errors: ResizeArray<JsonicError>) path (decoder: Decoder<'T>) value: 'T =
     match decoder path value with
     | Ok v -> v
     | Error er ->
@@ -850,8 +821,8 @@ let private unwrapWith (errors: ResizeArray<Error>) path (decoder: Decoder<'T>) 
         Unchecked.defaultof<'T>
 
 
-type Getters<'T>(path: string, v: Value) =
-    let mutable errors = ResizeArray<Error>()
+type Getters<'T>(path: string, v: JsonicValue) =
+    let mutable errors = ResizeArray<JsonicError>()
 
     let required =
         { new IRequiredGetter with
@@ -860,9 +831,6 @@ type Getters<'T>(path: string, v: Value) =
 
             member __.At (fieldNames : string list) (decoder : Decoder<_>) =
                 unwrapWith errors path (at fieldNames decoder) v
-
-            // member __.Raw (decoder: Decoder<_>) =
-            //     unwrapWith errors path decoder v
         }
 
     let optional =
@@ -872,22 +840,6 @@ type Getters<'T>(path: string, v: Value) =
 
             member __.At (fieldNames : string list) (decoder : Decoder<_>) =
                 unwrapWith errors path (optionalAt fieldNames decoder) v
-
-            // member __.Raw (decoder: Decoder<_>) =
-            //     match decoder path v with
-            //     | Ok v -> Some v
-            //     | Error((_, reason) as error) ->
-            //         match reason with
-            //         | BadPrimitive(_,v)
-            //         | BadPrimitiveExtra(_,v,_)
-            //         | BadType(_,v) ->
-            //             if Helpers.isNullValue v then None
-            //             else errors.Add(error); Unchecked.defaultof<_>
-            //         | BadField _
-            //         | BadPath _ -> None
-            //         | TooSmallArray _
-            //         | FailMessage _
-            //         | BadOneOf _ -> errors.Add(error); Unchecked.defaultof<_>
         }
 
     member __.Errors: _ list =
@@ -908,7 +860,7 @@ let object (builder: IGetters -> 'value) : Decoder<'value> =
 
         | fst :: _ as errors ->
             if errors.Length > 1 then
-                BadOneOf
+                JsonicError.BadOneOf
                     {| Path = path
                        Errors = errors
                     |}
@@ -916,3 +868,30 @@ let object (builder: IGetters -> 'value) : Decoder<'value> =
 
             else
                 Error fst
+
+
+let errorToString e =
+    match e with
+    | JsonicError.Failure v ->
+        $"A decoder failed with message {v.Message} at {v.Path}"
+
+    | JsonicError.BadOneOf v ->
+        match v.Errors with
+        | [] -> $"Ran into a Decode.oneOf with no possibilities at {v.Path}."
+        | _ -> $"Ran into a Decode.oneOf where none of the decoders succeeded at {v.Path}."
+
+    | JsonicError.IndexOutOfRange v ->
+        $"Index out of range at {v.Path}. Index is {v.Index}, array length is {v.ArrayLength}."
+
+    | JsonicError.TypeMismatch v ->
+        $"Type mismatch at {v.Path}. Attempted to decode a {v.ValueType} from {v.Actual}."
+
+    | JsonicError.FieldMissing v ->
+        $"Field missing at {v.Path}. Attempted to decode field {v.FieldName} from {v.Actual}."
+
+    | JsonicError.ValueOverflow v ->
+        $"Value overflow at {v.Path}. Attempted to convert to {v.ValueType} from {v.Actual}"
+
+    | JsonicError.InvalidPath v ->
+        let fieldPath = System.String.Join(".", v.Fields)
+        $"Invalid path {v.Path}. Attempted to decode {fieldPath} from {v.Actual}"

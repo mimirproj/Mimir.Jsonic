@@ -13,53 +13,49 @@ module Encode =
         | WriteToStream of Stream
         | WriteToBuffer of Buffers.IBufferWriter<byte>
 
-    let private write output indent (value:Value) =
+    let private write output indent (value:JsonicValue) =
         let options = JsonWriterOptions(Indented = indent)
         use writer =
             match output with
             | WriteToStream stream -> new Utf8JsonWriter(stream, options)
             | WriteToBuffer buffer -> new Utf8JsonWriter(buffer, options)
 
-        let rec run(value:Value) =
+        let rec run(value:JsonicValue) =
             match value with
-            | Primitive prim ->
-                match prim with
-                | Nil ->
-                    writer.WriteNullValue()
+            | JsonicValue.Nil ->
+                writer.WriteNullValue()
 
-                | Bool value ->
-                    writer.WriteBooleanValue(value)
+            | JsonicValue.Bool value ->
+                writer.WriteBooleanValue(value)
 
-                | Integer iv ->
-                    match iv with
-                    | SignedInteger value ->
-                        writer.WriteNumberValue(value)
+            | JsonicValue.Int value ->
+                writer.WriteNumberValue(value)
 
-                    | UnsignedInteger value ->
-                        writer.WriteNumberValue(value)
+            | JsonicValue.Uint value ->
+                writer.WriteNumberValue(value)
 
-                | Float value ->
-                    writer.WriteNumberValue(value)
+            | JsonicValue.Float value ->
+                writer.WriteNumberValue(value)
 
-                | String value ->
-                    writer.WriteStringValue(value)
+            | JsonicValue.String value ->
+                writer.WriteStringValue(value)
 
-                | Binary bytes ->
-                    let base64 = Convert.ToBase64String(bytes)
-                    writer.WriteStringValue("base64," + base64)
+            | JsonicValue.Binary bytes ->
+                let base64 = Convert.ToBase64String(bytes)
+                writer.WriteStringValue("base64," + base64)
 
-                | Timestamp ts ->
-                    writer.WriteStringValue(ts.ToString("O", CultureInfo.InvariantCulture))
+            | JsonicValue.Timestamp ts ->
+                writer.WriteStringValue(ts.ToString("O", CultureInfo.InvariantCulture))
 
-                | Uuid v ->
-                    writer.WriteStringValue(v.ToString())
+            | JsonicValue.Uuid v ->
+                writer.WriteStringValue(v.ToString())
 
-            | Array values ->
+            | JsonicValue.Array values ->
                 writer.WriteStartArray()
                 values |> Array.iter run
                 writer.WriteEndArray()
 
-            | Object m ->
+            | JsonicValue.Object m ->
                 writer.WriteStartObject()
 
                 Map.toArray m
@@ -94,21 +90,21 @@ module Decode =
         let rec visit path (el:JsonElement) =
             match el.ValueKind with
             | JsonValueKind.Null ->
-                Primitive Nil
+                JsonicValue.Nil
 
             | JsonValueKind.True ->
-                Primitive(Bool true)
+                JsonicValue.Bool true
 
             | JsonValueKind.False ->
-                Primitive(Bool false)
+                JsonicValue.Bool false
 
             | JsonValueKind.Number ->
                 // Order is important, unsigned integers first, then signed, lastly float!
-                el.TryGetUInt64() |> ofPairMapped (UnsignedInteger >> Integer >> Primitive)
+                el.TryGetUInt64() |> ofPairMapped JsonicValue.Uint
                 |> Option.orElseWith(fun _ ->
-                    el.TryGetInt64() |> ofPairMapped (SignedInteger >> Integer >> Primitive))
+                    el.TryGetInt64() |> ofPairMapped JsonicValue.Int)
                 |> Option.orElseWith(fun _ ->
-                    el.TryGetDouble() |> ofPairMapped (Float >> Primitive))
+                    el.TryGetDouble() |> ofPairMapped JsonicValue.Float)
                 |> Option.defaultWith(fun _ ->
                     invalidOp "Couldn't decode JSON Number")
 
@@ -123,7 +119,7 @@ module Decode =
                         try
                             stringValue.Substring(prefix.Length)
                             |> Convert.FromBase64String
-                            |> Binary |> Primitive
+                            |> JsonicValue.Binary
                             |> Some
                         with _ ->
                             None
@@ -133,10 +129,11 @@ module Decode =
                 // Order is important, first types formatted as string, lastly plain strings!
                 tryGetBase64()
                 |> Option.orElseWith(fun _ ->
-                    el.TryGetDateTimeOffset() |> ofPairMapped (Timestamp >> Primitive))
+                    el.TryGetDateTimeOffset() |> ofPairMapped JsonicValue.Timestamp)
                 |> Option.orElseWith(fun _ ->
-                    el.TryGetGuid() |> ofPairMapped (Uuid >> Primitive))|> Option.orElseWith(fun _ ->
-                    el.GetString() |> String |> Primitive |> Some)
+                    el.TryGetGuid()
+                    |> ofPairMapped JsonicValue.Uuid
+                    |> Option.orElseWith(fun _ -> el.GetString() |> JsonicValue.String |> Some))
                 |> Option.defaultWith(fun _ ->
                     invalidOp "Couldn't decode JSON String")
 
@@ -144,7 +141,7 @@ module Decode =
                 el.EnumerateArray()
                 |> Seq.mapi(fun index item -> visit $"{path}.[{index}]" item)
                 |> Seq.toArray
-                |> Array
+                |> JsonicValue.Array
 
             | JsonValueKind.Object ->
                 el.EnumerateObject()
@@ -153,7 +150,7 @@ module Decode =
                     , visit (path + "." + p.Name) p.Value
                     ))
                 |> Map.ofSeq
-                |> Object
+                |> JsonicValue.Object
 
             | _ ->
                 invalidOp "Unsupported JSON token"

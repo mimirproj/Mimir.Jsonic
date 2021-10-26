@@ -72,3 +72,17 @@ module Api =
                     return! encodeAsync api.OutputCodec output next ctx
             }
 
+    let routeCtx (api:Api<'input, 'output>)
+                 (exec:HttpContext -> 'input -> 'output task) : HttpHandler =
+
+        fun (next : HttpFunc) (ctx : HttpContext) ->
+            task {
+                match! tryDecodeAsync api.InputCodec ctx with
+                | Error e ->
+                    return! decodeError "Decoder failure" next ctx
+
+                | Ok input ->
+                    let! output = exec ctx input
+                    return! encodeAsync api.OutputCodec output next ctx
+            }
+

@@ -1,32 +1,24 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-
-    <Authors>Mimir</Authors>
-    <Description>Mimir's Jsonic for Fable</Description>
-    <PackageTags>Mimir Json Encode Fable</PackageTags>
-
-    <Version>1.0.0-alpha</Version>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <NeutralLanguage>en</NeutralLanguage>
-    <RepositoryUrl>https://github.com/mimirproj</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-
-    <PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
-
-    <!-- FS0025: Incomplete pattern matches on this expression. -->
-    <WarningsAsErrors>25</WarningsAsErrors>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Include="Json.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Mimir.Jsonic" Version="1.0.0-alpha" />
-  </ItemGroup>
-
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<Authors>Mimir</Authors>
+		<Description>Mimir's Jsonic for Fable</Description>
+		<PackageTags>Mimir Json Encode Fable</PackageTags>
+		<Version>1.0.0-alpha</Version>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<NeutralLanguage>en</NeutralLanguage>
+		<RepositoryUrl>https://github.com/mimirproj</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+		<!-- FS0025: Incomplete pattern matches on this expression. -->
+		<WarningsAsErrors>25</WarningsAsErrors>
+	</PropertyGroup>
+	<ItemGroup>
+		<Compile Include="Json.fs"/>
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Mimir.Jsonic" Version="5.0.0-alpha"/>
+	</ItemGroup>
 </Project>
