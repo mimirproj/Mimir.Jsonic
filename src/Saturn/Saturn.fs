@@ -48,11 +48,11 @@ module Api =
 
                         | None ->
                             ctx.SetStatusCode 400
-                            return! text "Undefined API" next ctx
+                            return! text $"Undefined API: def={defName}" next ctx
 
                     | Error _ ->
                         ctx.SetStatusCode 400
-                        return! text "Unspecified API" next ctx
+                        return! text "Unspecified API: where is the 'def' query parameter?" next ctx
                 }
             )
         }
@@ -64,8 +64,8 @@ module Api =
         fun (next : HttpFunc) (ctx : HttpContext) ->
             task {
                 match! tryDecodeAsync api.InputCodec ctx with
-                | Error _ ->
-                    return! decodeError "Decoder failure" next ctx
+                | Error e ->
+                    return! decodeError $"Decoder failure: {Decode.errorToString e}" next ctx
 
                 | Ok input ->
                     let! output = exec input
@@ -79,7 +79,7 @@ module Api =
             task {
                 match! tryDecodeAsync api.InputCodec ctx with
                 | Error e ->
-                    return! decodeError "Decoder failure" next ctx
+                    return! decodeError $"Decoder failure: {Decode.errorToString e}" next ctx
 
                 | Ok input ->
                     let! output = exec ctx input
