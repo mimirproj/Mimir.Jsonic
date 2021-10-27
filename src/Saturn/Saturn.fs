@@ -1,12 +1,11 @@
 ﻿module Mimir.Jsonic.Saturn
 
-open System.IO
-open System.Text
-open Microsoft.AspNetCore.Http
 open FSharp.Control.Tasks.V2
 open Giraffe
-
+open Microsoft.AspNetCore.Http
 open Mimir.Jsonic.Net
+open System.IO
+open System.Text
 
 
 let encodeAsync (codec:Codec<'a>) (data:'a) : HttpHandler =
@@ -31,7 +30,8 @@ let decodeError errorText next (ctx : HttpContext) =
 
 [<RequireQualifiedAccess>]
 module Api =
-    open Saturn.Router
+    open Saturn
+    open Microsoft.Extensions.Logging
 
     let build (definition:ApiDefinition<'apiUnion>)
               (unwrapAndHandle:'apiUnion -> HttpHandler)
@@ -39,6 +39,8 @@ module Api =
 
         router {
             post "/api" (fun next ctx ->
+                let logger = ctx.GetLogger()
+
                 task {
                     match ctx.GetQueryStringValue "def" with
                     | Ok defName ->
@@ -47,10 +49,14 @@ module Api =
                             return! unwrapAndHandle api next ctx
 
                         | None ->
+                            logger.Log(LogLevel.Error, "Undefined API: def={defName}", defName)
+
                             ctx.SetStatusCode 400
                             return! text $"Undefined API: def={defName}" next ctx
 
                     | Error _ ->
+                        logger.Log(LogLevel.Error, "Unspecified API: where is the 'def' query parameter?")
+
                         ctx.SetStatusCode 400
                         return! text "Unspecified API: where is the 'def' query parameter?" next ctx
                 }
@@ -63,9 +69,14 @@ module Api =
 
         fun (next : HttpFunc) (ctx : HttpContext) ->
             task {
+                let logger = ctx.GetLogger()
+
                 match! tryDecodeAsync api.InputCodec ctx with
                 | Error e ->
-                    return! decodeError $"Decoder failure: {Decode.errorToString e}" next ctx
+                    let error = Decode.errorToString e
+
+                    logger.Log(LogLevel.Error, "Decoder failure: {error}", error)
+                    return! decodeError  $"Decoder failure: {error}" next ctx
 
                 | Ok input ->
                     let! output = exec input
@@ -77,9 +88,14 @@ module Api =
 
         fun (next : HttpFunc) (ctx : HttpContext) ->
             task {
+                let logger = ctx.GetLogger()
+
                 match! tryDecodeAsync api.InputCodec ctx with
                 | Error e ->
-                    return! decodeError $"Decoder failure: {Decode.errorToString e}" next ctx
+                    let error = Decode.errorToString e
+
+                    logger.Log(LogLevel.Error, "Decoder failure: {error}", error)
+                    return! decodeError  $"Decoder failure: {error}" next ctx
 
                 | Ok input ->
                     let! output = exec ctx input
