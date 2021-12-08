@@ -4,11 +4,23 @@ module Mimir.Jsonic.Net.Api
 open FSharp.Data
 open Mimir.Jsonic
 open Mimir.Jsonic.Net
+open Microsoft.FSharp.Control
 
-let callAsync (definition:ApiDefinition<'apiUnion>)
-              (apiUrl: string)
+type CallInput =
+    { ApiName:string
+      Value:JsonicValue
+    }
+
+type CallOutput =
+    | TextOutput of text:string
+    | BinaryOutput of bin:byte array
+
+
+let callAsync (callAsync: CallInput -> Async<CallOutput>)
+              (definition:ApiDefinition<'apiUnion>)
               (apiCtor:Api<'input, 'output> -> 'apiUnion)
-              (input: 'input) : Async<'output> =
+              (input: 'input)
+              : 'output task =
 
     let anyMapping =
         definition
@@ -19,26 +31,39 @@ let callAsync (definition:ApiDefinition<'apiUnion>)
         failwith "API: Definition not found, is it defined?"
 
     | Some (apiName, api) ->
-        let inputJson = Codec.encodeToString false api.InputCodec input
+        let inputValue = Codec.encodeToValue api.InputCodec input
 
-        async {
-            let! response =
-                Http.AsyncRequest( apiUrl + "/api"
-                                 , query=[ "def", apiName ]
-                                 , httpMethod="POST"
-                                 , body=TextRequest inputJson
-                                 )
+        task {
+            let! outputValue = callAsync { ApiName=apiName; Value=inputValue }
 
-            match response.Body with
-            | Text outputJson ->
-                match Codec.decodeString api.OutputCodec outputJson with
+            match outputValue with
+            | TextOutput json ->
+                match Codec.decodeString api.OutputCodec json with
                 | Ok value ->
                     return value
 
                 | Error e ->
-                    return failwithf "API: Couln't decode http response, is your definition current?\n%s\n%s" (Decode.errorToString e) outputJson
+                    return failwithf "API: Couldn't decode http response, is your definition current?\n%s\n%s" (Decode.errorToString e) json
 
-            | _ ->
-                return failwithf "API: Unsupported http response, text expected."
+            | BinaryOutput _ ->
+                return failwithf "API: Unsupported http response, binary data not yet supported."
         }
 
+
+let jsonOverHttp (apiUrl: string)
+                 (input:CallInput)
+                 : CallOutput task =
+
+    task {
+        let json = Encode.toString false input.Value
+        let! response =
+            Http.AsyncRequest( apiUrl + "/api"
+                             , query=[ "def", input.ApiName ]
+                             , httpMethod="POST"
+                             , body=TextRequest json
+                             )
+
+        match response.Body with
+        | Text outputJson -> return TextOutput outputJson
+        | Binary bin -> return BinaryOutput bin
+    }

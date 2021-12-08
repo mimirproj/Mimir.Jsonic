@@ -1,8 +1,9 @@
 ﻿module Mimir.Jsonic.Saturn
 
-open FSharp.Control.Tasks.V2
+
 open Giraffe
 open Microsoft.AspNetCore.Http
+open Microsoft.FSharp.Control
 open Mimir.Jsonic.Net
 open System.IO
 open System.Text

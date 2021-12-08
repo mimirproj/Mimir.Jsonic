@@ -552,3 +552,7 @@ module Codec =
             { encoder = id
               decoder = Decode.value
             }
+
+    /// Infer the `Codec` from a type that has `static member Codec:Codec< ^a>`
+    let inline infer< ^a when ^a: (static member Codec: Codec< ^a>)> =
+        (^a : (static member Codec : Codec< ^a>) ())
