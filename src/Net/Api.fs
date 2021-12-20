@@ -16,7 +16,7 @@ type CallOutput =
     | BinaryOutput of bin:byte array
 
 
-let callAsync (callAsync: CallInput -> Async<CallOutput>)
+let callAsync (callAsync: CallInput -> CallOutput task)
               (definition:ApiDefinition<'apiUnion>)
               (apiCtor:Api<'input, 'output> -> 'apiUnion)
               (input: 'input)
