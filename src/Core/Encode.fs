@@ -63,6 +63,8 @@ let timestamp : Encoder<System.DateTimeOffset> =
 let uuid : Encoder<System.Guid> =
     JsonicValue.Uuid
 
+let guid = uuid
+
 let array : Encoder<JsonicValue array> =
     JsonicValue.Array
 

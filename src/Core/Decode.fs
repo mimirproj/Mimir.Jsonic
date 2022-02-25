@@ -220,6 +220,7 @@ let uuid : Decoder<System.Guid> =
         | JsonicValue.Uuid v -> Ok v
         | _ -> mismatch path "uuid" value
 
+let guid = uuid
 
 (* OBJECT PRIMITIVES
 *)

@@ -145,7 +145,7 @@ module Codec =
     let uuid =
         build Encode.uuid Decode.uuid
 
-
+    let guid = uuid
 
     (* CUSTOM *)
 
@@ -426,7 +426,7 @@ module Codec =
                     (Decode.index 2u <| decoder m3)
             }
 
-    let result (errorCodec: Codec<'error>) (valueCodec: Codec<'value>) =
+    let result (valueCodec: Codec<'value>) (errorCodec: Codec<'error>) =
         custom
             (fun ferr fok v ->
                 match v with
